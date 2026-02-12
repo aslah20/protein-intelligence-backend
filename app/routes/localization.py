@@ -9,7 +9,7 @@ router = APIRouter()
 # -----------------------------
 # Configuration
 # -----------------------------
-MODEL_PATH = "app/models/localization/Localization_weighted"
+MODEL_PATH = "asmaslah/protein-localization-protbert"
 MAX_LENGTH = 512
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
