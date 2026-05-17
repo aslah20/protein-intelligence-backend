@@ -1,15 +1,18 @@
 from fastapi import APIRouter, HTTPException
 import torch
+import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import joblib
 import os
+from typing import List
+from pydantic import BaseModel
 
 router = APIRouter()
 
 # -----------------------------
 # Configuration
 # -----------------------------
-MODEL_PATH = "app/models/localization/Localization_weighted"
+MODEL_PATH = "asmaslah/proteinai-localization"
 MAX_LENGTH = 512
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -39,41 +42,45 @@ def load_localization_model():
 tokenizer, model, label_encoder = load_localization_model()
 
 
-# -----------------------------
-# Prediction Endpoint
-# -----------------------------
-@router.post("/")
-def predict_localization(sequence: str):
-    try:
-        if not sequence or len(sequence.strip()) == 0:
-            raise HTTPException(status_code=400, detail="Sequence cannot be empty.")
+# ----- REQUEST MODEL -----
+class BatchLocalizationRequest(BaseModel):
+    sequences: List[str]
 
-        # ProtBERT expects space-separated amino acids
-        formatted_seq = " ".join(list(sequence.strip().upper()))
+
+# ----- BATCH ENDPOINT -----
+@router.post("/predict/localization/")
+def predict_localization(request: BatchLocalizationRequest):
+
+    results = []
+
+    for seq in request.sequences:
+        clean_seq = " ".join(list(seq.strip()))
 
         inputs = tokenizer(
-            formatted_seq,
+            clean_seq,
+            return_tensors="pt",
             truncation=True,
             padding=True,
-            max_length=MAX_LENGTH,
-            return_tensors="pt"
+            max_length=512
         )
 
         inputs = {k: v.to(device) for k, v in inputs.items()}
 
         with torch.no_grad():
             outputs = model(**inputs)
-            probabilities = torch.softmax(outputs.logits, dim=1)
-            predicted_index = torch.argmax(probabilities, dim=1).item()
+            logits = outputs.logits
+            probs = F.softmax(logits, dim=1)
 
-        predicted_label = label_encoder.inverse_transform([predicted_index])[0]
-        confidence = float(probabilities[0][predicted_index])
+            confidence, predicted_class = torch.max(probs, dim=1)
 
-        return {
-            "task": "Protein Localization",
+        predicted_label = label_encoder.inverse_transform(
+            [predicted_class.item()]
+        )[0]
+
+        results.append({
+            "sequence": seq,
             "prediction": predicted_label,
-            "confidence": round(confidence, 4)
-        }
+            "confidence": float(confidence.item())
+        })
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"results": results}
