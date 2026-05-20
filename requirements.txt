@@ -3,3 +3,10 @@ uvicorn
 torch
 transformers
 joblib
+sentencepiece
+accelerate
+safetensors
+python-multipart
+scikit-learn
+numpy
+pydantic
