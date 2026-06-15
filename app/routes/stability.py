@@ -9,23 +9,17 @@ router = APIRouter()
 # -----------------------------
 # CONFIG
 # -----------------------------
-BASE_MODEL = "facebook/esm2_t6_8M_UR50D"
-MODEL_PATH = "app/models/stability/best_model.pt"
+#BASE_MODEL = "facebook/esm2_t6_8M_UR50D"
+MODEL_REPO = "asmaslah/proteinai-stability"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # -----------------------------
 # LOAD MODEL
 # -----------------------------
-tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_REPO)
 
-model = AutoModelForSequenceClassification.from_pretrained(
-    BASE_MODEL,
-    num_labels=1,
-    ignore_mismatched_sizes=True
-)
-
-model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
+model = AutoModelForSequenceClassification.from_pretrained(MODEL_REPO)
 model.to(device)
 model.eval()
 
